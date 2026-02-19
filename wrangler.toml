@@ -1,0 +1,43 @@
+name = "auth"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Cloudflare Routes - Configure these for your domain
+# routes = [
+#   { pattern = "auth.example.com/", zone_name = "example.com" },
+#   { pattern = "auth.example.com/*", zone_name = "example.com" }
+# ]
+
+# Serve admin UI static files
+[assets]
+directory = "./admin/dist"
+binding = "ASSETS"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "auth-db"
+database_id = "3a5b083f-3c7a-4552-b938-3cd8ddafebec"
+migrations_dir = "migrations"
+
+# Environment Variables
+# Non-sensitive configuration that can be set directly in wrangler.toml or via environment
+[vars]
+# Add any non-sensitive global variables here if needed
+
+# Secrets (set these via wrangler secret put <SECRET_NAME>)
+# These are sensitive values that should NEVER be committed to version control
+#
+# REQUIRED SECRETS:
+# - ADMIN_SESSION_SECRET: Secret key for admin session management
+#   Set with: wrangler secret put ADMIN_SESSION_SECRET
+#
+# - ENCRYPTION_KEY: Key for encrypting sensitive data (32 bytes, base64 encoded)
+#   Set with: wrangler secret put ENCRYPTION_KEY
+#
+# - ADMIN_DOMAIN: Domain for admin panel access
+#   Set with: wrangler secret put ADMIN_DOMAIN
+#
+
+[observability]
+enabled = true

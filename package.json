@@ -1,0 +1,34 @@
+{
+  "name": "cloudflare-auth-service",
+  "version": "1.0.0",
+  "description": "Authentication service with multi-project support",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "cd admin && npm install && npm run build",
+    "build:admin": "cd admin && npm run build",
+    "dev": "npm run build:admin && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply auth-db",
+    "db:migrate:local": "wrangler d1 migrations apply auth-db --local",
+    "db:create": "wrangler d1 create auth-db",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "drizzle-orm": "^0.33.0",
+    "jose": "^5.2.0",
+    "bcryptjs": "^2.4.3",
+    "zod": "^3.22.4",
+    "nanoid": "^5.0.4",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240815.0",
+    "@types/bcryptjs": "^2.4.6",
+    "drizzle-kit": "^0.24.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0",
+    "wrangler": "^3.78.0"
+  }
+}
