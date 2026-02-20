@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from "react-router-dom";
 import { api } from '../lib/api';
 
 interface SystemSettings {
@@ -6,14 +7,30 @@ interface SystemSettings {
   keep_logs: boolean;
 }
 
+interface SettingsContext {
+  onThemeChange?: (theme: "system" | "light" | "dark") => void;
+}
+
+interface EmailProviderConfig {
+  apiKey?: string;
+  domain?: string;
+  region?: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  secretKey?: string;
+  secure?: boolean;
+}
+
 interface EmailProvider {
   id: string;
   name: string;
   provider: string;
-  type: 'api' | 'smtp';
+  type: "api" | "smtp";
   isDefault: boolean;
   isFallback: boolean;
-  config: any;
+  config: EmailProviderConfig;
   fromEmail: string;
   fromName: string;
   enabled: boolean;
@@ -28,6 +45,7 @@ interface EmailTemplate {
 }
 
 export default function Settings() {
+  const { onThemeChange } = useOutletContext<SettingsContext>() || {};
   const [activeTab, setActiveTab] = useState<'general' | 'providers' | 'templates'>('general');
   const [settings, setSettings] = useState<SystemSettings>({ theme: 'system', keep_logs: true });
   const [providers, setProviders] = useState<EmailProvider[]>([]);
@@ -85,6 +103,7 @@ export default function Settings() {
     const newSettings = { ...settings, theme };
     setSettings(newSettings);
     applyTheme(theme);
+    if (onThemeChange) onThemeChange(theme);
 
     try {
       await api.updateSettings(newSettings);
@@ -388,8 +407,17 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
   const [loading, setLoading] = useState(false);
 
   const providerOptions = [
-    'sendgrid', 'postmark', 'mailgun', 'brevo', 'mailersend',
-    'mailchimp', 'mailjet', 'smtp2go', 'mailtrap', 'resend'
+    "sendgrid",
+    "postmark",
+    "mailgun",
+    "brevo",
+    "mailersend",
+    "mailchimp",
+    "mailjet",
+    "smtp2go",
+    "mailtrap",
+    "resend",
+    "smtp",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -411,10 +439,14 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
 
   return (
     <div className="card p-6 max-w-2xl">
-      <h3 className="text-lg font-medium text-text-primary mb-6">{initialData ? 'Edit Provider' : 'New Provider'}</h3>
+      <h3 className="text-lg font-medium text-text-primary mb-6">
+        {initialData ? "Edit Provider" : "New Provider"}
+      </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-text-secondary mb-1">Name</label>
+          <label className="block text-sm font-medium text-text-secondary mb-1">
+            Name
+          </label>
           <input
             type="text"
             className="input w-full"
@@ -426,21 +458,33 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Provider</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Provider
+            </label>
             <select
               className="input w-full"
               value={formData.provider}
-              onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, provider: e.target.value })
+              }
             >
-              {providerOptions.map(p => <option key={p} value={p}>{p}</option>)}
+              {providerOptions.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">Type</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Type
+            </label>
             <select
               className="input w-full"
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+              onChange={(e) =>
+                setFormData({ ...formData, type: e.target.value as any })
+              }
             >
               <option value="api">API</option>
               <option value="smtp">SMTP</option>
@@ -450,52 +494,241 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">From Email</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              From Email
+            </label>
             <input
               type="email"
               className="input w-full"
               value={formData.fromEmail}
-              onChange={(e) => setFormData({ ...formData, fromEmail: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, fromEmail: e.target.value })
+              }
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">From Name</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              From Name
+            </label>
             <input
               type="text"
               className="input w-full"
               value={formData.fromName}
-              onChange={(e) => setFormData({ ...formData, fromName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, fromName: e.target.value })
+              }
             />
           </div>
         </div>
 
         <div className="border-t border-border pt-4 mt-4">
-          <h4 className="text-sm font-medium text-text-primary mb-3">Configuration</h4>
+          <h4 className="text-sm font-medium text-text-primary mb-3">
+            Configuration
+          </h4>
           <div className="space-y-4">
-             {/* Dynamic config fields based on provider */}
-             <div>
-               <label className="block text-sm font-medium text-text-secondary mb-1">API Key</label>
-               <input
-                 type="password"
-                 className="input w-full"
-                 value={formData.config?.apiKey || ''}
-                 onChange={(e) => setFormData({ ...formData, config: { ...formData.config, apiKey: e.target.value } })}
-                 required={formData.type === 'api'}
-               />
-             </div>
-             {['mailgun'].includes(formData.provider || '') && (
-               <div>
-                 <label className="block text-sm font-medium text-text-secondary mb-1">Domain</label>
-                 <input
-                   type="text"
-                   className="input w-full"
-                   value={formData.config?.domain || ''}
-                   onChange={(e) => setFormData({ ...formData, config: { ...formData.config, domain: e.target.value } })}
-                   required
-                 />
-               </div>
-             )}
+            {formData.type === "api" ? (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    {formData.provider === "postmark"
+                      ? "Server Token"
+                      : "API Key"}
+                  </label>
+                  <input
+                    type="password"
+                    className="input w-full"
+                    value={formData.config?.apiKey || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        config: { ...formData.config, apiKey: e.target.value },
+                      })
+                    }
+                    required={formData.type === "api"}
+                  />
+                </div>
+
+                {/* Mailjet Secret Key */}
+                {["mailjet"].includes(formData.provider || "") && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Secret Key
+                    </label>
+                    <input
+                      type="password"
+                      className="input w-full"
+                      value={formData.config?.secretKey || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            secretKey: e.target.value,
+                          },
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Mailgun Domain & Region */}
+                {["mailgun"].includes(formData.provider || "") && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-1">
+                        Domain
+                      </label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={formData.config?.domain || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: {
+                              ...formData.config,
+                              domain: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="mg.example.com"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-1">
+                        Region
+                      </label>
+                      <select
+                        className="input w-full"
+                        value={formData.config?.region || "us"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: {
+                              ...formData.config,
+                              region: e.target.value,
+                            },
+                          })
+                        }
+                      >
+                        <option value="us">US (Default)</option>
+                        <option value="eu">EU</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Host
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      value={formData.config?.host || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, host: e.target.value },
+                        })
+                      }
+                      required={formData.type === "smtp"}
+                      placeholder="smtp.example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Port
+                    </label>
+                    <input
+                      type="number"
+                      className="input w-full"
+                      value={formData.config?.port || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            port: parseInt(e.target.value),
+                          },
+                        })
+                      }
+                      required={formData.type === "smtp"}
+                      placeholder="587"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      value={formData.config?.username || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            username: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      className="input w-full"
+                      value={formData.config?.password || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: {
+                            ...formData.config,
+                            password: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="smtp_secure"
+                    checked={formData.config?.secure || false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        config: {
+                          ...formData.config,
+                          secure: e.target.checked,
+                        },
+                      })
+                    }
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="smtp_secure"
+                    className="text-sm text-text-secondary"
+                  >
+                    Use Secure Connection (TLS/SSL)
+                  </label>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -504,7 +737,9 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
             <input
               type="checkbox"
               checked={formData.enabled}
-              onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+              onChange={(e) =>
+                setFormData({ ...formData, enabled: e.target.checked })
+              }
               className="rounded border-gray-300 text-primary focus:ring-primary"
             />
             <span className="text-sm text-text-primary">Enabled</span>
@@ -512,9 +747,15 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
-          <button type="button" onClick={onCancel} className="btn btn-secondary">Cancel</button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="btn btn-secondary"
+          >
+            Cancel
+          </button>
           <button type="submit" disabled={loading} className="btn btn-primary">
-            {loading ? 'Saving...' : 'Save Provider'}
+            {loading ? "Saving..." : "Save Provider"}
           </button>
         </div>
       </form>
@@ -528,12 +769,17 @@ function EmailTemplatesTab({ templates, onUpdate }: { templates: EmailTemplate[]
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const templateVariables: Record<string, string[]> = {
-    welcome: ['project_name', 'app_name', 'extra_data'],
-    confirmation: ['project_name', 'confirmation_url', 'action_url'],
-    password_reset: ['project_name', 'reset_url', 'action_url'],
-    magic_link: ['app_name', 'action_url'],
-    email_change: ['action_url'],
-    otp: ['otp'],
+    welcome: ["app_name", "project_name", "extra_data"],
+    confirmation: [
+      "app_name",
+      "project_name",
+      "confirmation_url",
+      "action_url",
+    ],
+    password_reset: ["app_name", "project_name", "reset_url", "action_url"],
+    magic_link: ["app_name", "project_name", "action_url"],
+    email_change: ["app_name", "project_name", "action_url"],
+    otp: ["app_name", "project_name", "otp"],
   };
   const availableVariables = templateVariables[selectedType] || [];
 

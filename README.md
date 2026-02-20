@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="admin/public/logo.png" alt="Cloudflare Auth Service Logo" width="180" />
-  <h1>Cloudflare Auth Service</h1>
+  <img src="admin/public/logo.svg" alt="Cloudflare Auth Service Logo" width="180" />
 </div>
 
 A generic, multi-project authentication service deployable on Cloudflare Workers with D1 database.
@@ -20,7 +19,7 @@ A generic, multi-project authentication service deployable on Cloudflare Workers
   - **Mailgun**
   - **Postmark**
   - **Resend**
-  - **SMTP** (Coming soon)
+  - **SMTP**
 
 ## Prerequisites
 
@@ -45,6 +44,7 @@ cp .dev.vars.example .dev.vars
 ```
 
 Edit `.dev.vars` and fill in your values:
+
 - **Admin Secrets**: Generate secure random strings for session and encryption keys.
 
 **Note:** Email configuration is now managed directly in the Admin Interface under "Settings" -> "Email Providers".

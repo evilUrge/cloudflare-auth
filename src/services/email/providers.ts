@@ -1,4 +1,5 @@
 import { EmailProviderType } from '../../types';
+import nodemailer from "nodemailer";
 
 export interface EmailMessage {
   to: string;
@@ -25,12 +26,7 @@ export class ProviderFactory {
       case 'resend':
         return new ResendProvider(config);
       case 'smtp':
-        // SMTP might be hard in Cloudflare Workers directly without a library like nodemailer which might not work.
-        // Workers can only make HTTP requests (fetch).
-        // Many SMTP providers have HTTP APIs (SMTP2GO, Mailtrap, etc).
-        // For generic SMTP, we might need a worker-specific library or use an HTTP proxy.
-        // For now, let's implement the specific API providers and leave SMTP as a placeholder or specific HTTP implementations.
-        throw new Error('Generic SMTP not fully supported in Workers environment yet, use API integration');
+        return new SmtpProvider(config);
       default:
         // Try to map known providers to their specific implementations if possible, otherwise throw
         throw new Error(`Provider ${type} not supported yet`);
@@ -147,5 +143,43 @@ export class ResendProvider implements IEmailProvider {
       const error = await response.text();
       throw new Error(`Resend Error: ${error}`);
     }
+  }
+}
+
+export class SmtpProvider implements IEmailProvider {
+  private transporter: nodemailer.Transporter;
+
+  constructor(
+    private config: {
+      host: string;
+      port: number;
+      username?: string;
+      password?: string;
+      secure?: boolean;
+    },
+  ) {
+    this.transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure ?? config.port === 465,
+      auth: config.username
+        ? {
+            user: config.username,
+            pass: config.password,
+          }
+        : undefined,
+    });
+  }
+
+  async send(message: EmailMessage): Promise<void> {
+    await this.transporter.sendMail({
+      from: message.fromName
+        ? `"${message.fromName}" <${message.from}>`
+        : message.from,
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
   }
 }

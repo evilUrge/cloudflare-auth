@@ -12,11 +12,71 @@ import AuditLogs from './pages/AuditLogs';
 import ApiDocs from './pages/ApiDocs';
 import Settings from './pages/Settings';
 
+interface SystemSettings {
+  theme: "system" | "light" | "dark";
+  keep_logs: boolean;
+}
+
 function AppRoutes() {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return !!api.getSessionToken();
   });
+  const [theme, setTheme] = useState<"system" | "light" | "dark">("system");
+
+  const applyTheme = (currentTheme: "system" | "light" | "dark") => {
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+    const useDark =
+      currentTheme === "dark" || (currentTheme === "system" && prefersDark);
+    document.documentElement.classList.toggle("dark", useDark);
+  };
+
+  // Initial theme load
+  useEffect(() => {
+    const loadTheme = async () => {
+      // If not authenticated, use system preference
+      if (!isAuthenticated) {
+        applyTheme("system");
+        setTheme("system");
+        return;
+      }
+
+      try {
+        const res = await api.getSettings();
+        if (res.success && res.data) {
+          const settings = res.data as SystemSettings;
+          setTheme(settings.theme);
+          applyTheme(settings.theme);
+        } else {
+          applyTheme("system");
+        }
+      } catch (err) {
+        console.error("Failed to load theme settings:", err);
+        applyTheme("system");
+      }
+    };
+
+    loadTheme();
+  }, [isAuthenticated]);
+
+  // Listen for system theme changes when in system mode
+  useEffect(() => {
+    if (theme !== "system") return;
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => applyTheme("system");
+
+    if (media.addEventListener) {
+      media.addEventListener("change", handler);
+      return () => media.removeEventListener("change", handler);
+    } else {
+      // Fallback for older browsers
+      media.addListener(handler);
+      return () => media.removeListener(handler);
+    }
+  }, [theme]);
 
   // Register session expiration handler
   useEffect(() => {
@@ -42,7 +102,13 @@ function AppRoutes() {
         path="/dashboard"
         element={
           isAuthenticated ? (
-            <Dashboard onLogout={() => setIsAuthenticated(false)} />
+            <Dashboard
+              onLogout={() => setIsAuthenticated(false)}
+              onThemeChange={(newTheme) => {
+                setTheme(newTheme);
+                applyTheme(newTheme);
+              }}
+            />
           ) : (
             <Navigate to="/login" replace />
           )
