@@ -17,7 +17,21 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
-      await api.login(email, password);
+      const response = await api.login(email, password);
+      // Store current user info
+      if (response.data) {
+        if (response.data.admin) {
+          localStorage.setItem(
+            "admin_user",
+            JSON.stringify(response.data.admin),
+          );
+        }
+        if (response.data.requiresSetup) {
+          localStorage.setItem("admin_requires_setup", "true");
+        } else {
+          localStorage.removeItem("admin_requires_setup");
+        }
+      }
       onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

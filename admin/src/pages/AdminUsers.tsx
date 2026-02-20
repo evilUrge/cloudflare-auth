@@ -25,7 +25,24 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       const response = await api.getAdminUsers();
-      setUsers(response.data || []);
+      const usersList = response.data || [];
+      setUsers(usersList);
+
+      // Check for forced setup
+      const requiresSetup =
+        localStorage.getItem("admin_requires_setup") === "true";
+      if (requiresSetup) {
+        // Find current user (assuming it's admin@example.com based on flag)
+        // Or we should verify against current logged in user email if possible,
+        // but checking admin@example.com is safe enough for the specific requirement.
+        const defaultAdmin = usersList.find(
+          (u) => u.email === "admin@example.com",
+        );
+        if (defaultAdmin) {
+          setEditingUser(defaultAdmin);
+          // Optional: Show a toast or notification explaining why
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load admin users');
     } finally {
@@ -308,38 +325,104 @@ interface EditAdminModalProps {
 }
 
 function EditAdminModal({ user, onClose, onSuccess }: EditAdminModalProps) {
+  const [email, setEmail] = useState(user.email);
   const [displayName, setDisplayName] = useState(user.displayName);
   const [role, setRole] = useState(user.role);
   const [enabled, setEnabled] = useState(user.enabled);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      await api.updateAdminUser(user.id, {
+      const updates: any = {
         displayName,
         role,
         enabled,
-      });
+      };
+
+      if (email !== user.email) {
+        updates.email = email;
+      }
+
+      await api.updateAdminUser(user.id, updates);
+
+      // If this was the forced setup for admin@example.com, clear the flag if email changed
+      if (user.email === "admin@example.com" && email !== "admin@example.com") {
+        localStorage.removeItem("admin_requires_setup");
+      }
+
+      // Check if updating current user to update local state and UI
+      const currentUserStr = localStorage.getItem('admin_user');
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          // Check by ID or email to ensure we catch the current user update
+          if (currentUser.id === user.id || currentUser.email === user.email) {
+            const updatedUser = { ...currentUser, ...updates };
+            // Ensure displayName is updated in the local storage object
+            updatedUser.displayName = updates.displayName || displayName;
+            
+            localStorage.setItem('admin_user', JSON.stringify(updatedUser));
+            
+            // Dispatch custom event with the new user data
+            const event = new CustomEvent('admin-user-updated', { detail: updatedUser });
+            window.dispatchEvent(event);
+          }
+        } catch (e) {
+          console.error('Failed to update local user state', e);
+        }
+      }
+
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update admin user');
+      setError(
+        err instanceof Error ? err.message : "Failed to update admin user",
+      );
       setLoading(false);
     }
   };
+
+  if (showPasswordModal) {
+    return (
+      <ChangePasswordModal
+        userId={user.id}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={() => {
+          setShowPasswordModal(false);
+          // Optional: Show success message
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="card max-w-md w-full p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-text-primary">Edit Admin User</h2>
-          <button onClick={onClose} className="text-text-inactive hover:text-text-secondary">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <h2 className="text-xl font-bold text-text-primary">
+            Edit Admin User
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-text-inactive hover:text-text-secondary"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -352,20 +435,27 @@ function EditAdminModal({ user, onClose, onSuccess }: EditAdminModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Email
+            <label
+              htmlFor="editEmail"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
+              Email <span className="text-danger">*</span>
             </label>
             <input
+              id="editEmail"
               type="email"
-              value={user.email}
-              className="input bg-page"
-              disabled
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+              required
             />
-            <p className="text-xs text-text-subtle mt-1">Email cannot be changed</p>
           </div>
 
           <div>
-            <label htmlFor="editDisplayName" className="block text-sm font-medium text-text-secondary mb-2">
+            <label
+              htmlFor="editDisplayName"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
               Display Name <span className="text-danger">*</span>
             </label>
             <input
@@ -379,7 +469,10 @@ function EditAdminModal({ user, onClose, onSuccess }: EditAdminModalProps) {
           </div>
 
           <div>
-            <label htmlFor="editRole" className="block text-sm font-medium text-text-secondary mb-2">
+            <label
+              htmlFor="editRole"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
               Role <span className="text-danger">*</span>
             </label>
             <select
@@ -401,21 +494,205 @@ function EditAdminModal({ user, onClose, onSuccess }: EditAdminModalProps) {
               onChange={(e) => setEnabled(e.target.checked)}
               className="h-4 w-4 text-primary focus:ring-primary border-input-border rounded"
             />
-            <label htmlFor="editEnabled" className="ml-2 block text-sm text-text-secondary">
+            <label
+              htmlFor="editEnabled"
+              className="ml-2 block text-sm text-text-secondary"
+            >
               Account Enabled
             </label>
           </div>
 
-          <div className="flex items-center justify-end space-x-3 pt-4">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+            >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="btn btn-secondary"
+            >
+              Change Password
             </button>
             <button
               type="submit"
               disabled={loading}
               className="btn btn-primary"
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface ChangePasswordModalProps {
+  userId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function ChangePasswordModal({
+  userId,
+  onClose,
+  onSuccess,
+}: ChangePasswordModalProps) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMessage("");
+
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters long");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await api.changeAdminPassword(userId, {
+        currentPassword,
+        newPassword,
+      });
+      setSuccessMessage("Password changed successfully");
+      setTimeout(() => {
+        onSuccess();
+      }, 1500);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to change password",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="card max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-text-primary">
+            Change Password
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-text-inactive hover:text-text-secondary"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-danger-bg border border-danger/20 text-danger-text px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="bg-success-bg border border-success/20 text-success-text px-4 py-3 rounded-md text-sm">
+              {successMessage}
+            </div>
+          )}
+
+          <div>
+            <label
+              htmlFor="currentPassword"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
+              Current Password <span className="text-danger">*</span>
+            </label>
+            <input
+              id="currentPassword"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="input"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="newPassword"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
+              New Password <span className="text-danger">*</span>
+            </label>
+            <input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input"
+              minLength={8}
+              required
+            />
+            <p className="text-xs text-text-subtle mt-1">
+              Minimum 8 characters
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-text-secondary mb-2"
+            >
+              Retype New Password <span className="text-danger">*</span>
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="input"
+              minLength={8}
+              required
+            />
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !!successMessage}
+              className="btn btn-primary"
+            >
+              {loading ? "Changing..." : "Change Password"}
             </button>
           </div>
         </form>

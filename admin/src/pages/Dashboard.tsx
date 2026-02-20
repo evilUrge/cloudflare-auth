@@ -1,4 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
 interface DashboardProps {
@@ -9,6 +10,53 @@ interface DashboardProps {
 export default function Dashboard({ onLogout, onThemeChange }: DashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [adminDisplayName, setAdminDisplayName] = useState("Admin User");
+
+  useEffect(() => {
+    const updateAdminName = () => {
+      const userStr = localStorage.getItem("admin_user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          if (user.displayName) {
+            setAdminDisplayName(user.displayName);
+          }
+        } catch (e) {
+          console.error("Failed to parse admin user", e);
+        }
+      }
+    };
+
+    updateAdminName();
+
+    const handleUserUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.displayName) {
+        setAdminDisplayName(customEvent.detail.displayName);
+      } else {
+        updateAdminName();
+      }
+    };
+
+    // Listen for custom event to update name immediately
+    window.addEventListener(
+      "admin-user-updated",
+      handleUserUpdate as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        "admin-user-updated",
+        handleUserUpdate as EventListener,
+      );
+  }, []);
+
+  useEffect(() => {
+    const requiresSetup =
+      localStorage.getItem("admin_requires_setup") === "true";
+    if (requiresSetup && location.pathname !== "/dashboard/admin-users") {
+      navigate("/dashboard/admin-users");
+    }
+  }, [location.pathname, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -25,7 +73,7 @@ export default function Dashboard({ onLogout, onThemeChange }: DashboardProps) {
   };
 
   return (
-    <div className="min-h-screen flex bg-page">
+    <div className="h-screen flex bg-page overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-page border-r border-border text-text-primary flex flex-col">
         <div className="p-6 flex flex-col items-center text-center">
@@ -221,7 +269,9 @@ export default function Dashboard({ onLogout, onThemeChange }: DashboardProps) {
                         : "Dashboard"}
             </h2>
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-text-secondary">Admin User</div>
+              <div className="text-sm text-text-secondary">
+                {adminDisplayName}
+              </div>
             </div>
           </div>
         </header>

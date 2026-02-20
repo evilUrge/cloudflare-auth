@@ -27,7 +27,7 @@ export class AdminAuthService {
     email: string,
     password: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<{ sessionToken: string; admin: AdminUser }> {
     const db = drizzle(env.DB);
 
@@ -39,19 +39,22 @@ export class AdminAuthService {
       .get();
 
     if (!admin) {
-      throw new AuthenticationError('Invalid credentials');
+      throw new AuthenticationError("Invalid credentials");
     }
 
     const adminData = admin as unknown as AdminUser;
 
     if (!adminData.enabled) {
-      throw new AuthenticationError('Admin account is disabled');
+      throw new AuthenticationError("Admin account is disabled");
     }
 
     // Verify password
-    const isValidPassword = await verifyPassword(password, adminData.passwordHash);
+    const isValidPassword = await verifyPassword(
+      password,
+      adminData.passwordHash,
+    );
     if (!isValidPassword) {
-      throw new AuthenticationError('Invalid credentials');
+      throw new AuthenticationError("Invalid credentials");
     }
 
     // Generate session token
@@ -78,12 +81,12 @@ export class AdminAuthService {
 
     // Log audit event
     await auditService.logEvent(env, {
-      eventType: 'admin_action',
-      eventStatus: 'success',
+      eventType: "admin_action",
+      eventStatus: "success",
       adminUserId: adminData.id,
       ipAddress,
       userAgent,
-      eventData: { action: 'login', email: adminData.email },
+      eventData: { action: "login", email: adminData.email },
     });
 
     return { sessionToken, admin: adminData };
@@ -106,16 +109,14 @@ export class AdminAuthService {
       .get();
 
     if (session) {
-      await db
-        .delete(adminSessions)
-        .where(eq(adminSessions.id, session.id));
+      await db.delete(adminSessions).where(eq(adminSessions.id, session.id));
 
       // Log audit event
       await auditService.logEvent(env, {
-        eventType: 'admin_action',
-        eventStatus: 'success',
+        eventType: "admin_action",
+        eventStatus: "success",
         adminUserId: session.adminUserId,
-        eventData: { action: 'logout' },
+        eventData: { action: "logout" },
       });
     }
   }
@@ -138,7 +139,7 @@ export class AdminAuthService {
       .get();
 
     if (!session) {
-      throw new AuthenticationError('Invalid session');
+      throw new AuthenticationError("Invalid session");
     }
 
     const sessionData = session as unknown as AdminSession;
@@ -146,8 +147,10 @@ export class AdminAuthService {
     // Check expiration
     if (isExpired(sessionData.expiresAt)) {
       // Delete expired session
-      await db.delete(adminSessions).where(eq(adminSessions.id, sessionData.id));
-      throw new AuthenticationError('Session expired');
+      await db
+        .delete(adminSessions)
+        .where(eq(adminSessions.id, sessionData.id));
+      throw new AuthenticationError("Session expired");
     }
 
     // Get admin user
@@ -158,19 +161,25 @@ export class AdminAuthService {
       .get();
 
     if (!admin) {
-      throw new AuthenticationError('Admin user not found');
+      throw new AuthenticationError("Admin user not found");
     }
 
     const adminData = admin as unknown as AdminUser;
 
     if (!adminData.enabled) {
-      throw new AuthenticationError('Admin account is disabled');
+      throw new AuthenticationError("Admin account is disabled");
     }
 
-    // Update last activity
+    // Update last activity and extend session
+    const now = new Date();
+    const newExpiresAt = addSeconds(now, this.SESSION_DURATION);
+
     await db
       .update(adminSessions)
-      .set({ lastActivityAt: getTimestamp() })
+      .set({
+        lastActivityAt: getTimestamp(now),
+        expiresAt: getTimestamp(newExpiresAt),
+      })
       .where(eq(adminSessions.id, sessionData.id));
 
     return adminData;
@@ -188,15 +197,15 @@ export class AdminAuthService {
       email: string;
       password: string;
       displayName: string;
-      role?: 'super_admin' | 'admin' | 'viewer';
-    }
+      role?: "super_admin" | "admin" | "viewer";
+    },
   ): Promise<AdminUser> {
     const db = drizzle(env.DB);
 
     // Validate role
-    const validRoles = ['super_admin', 'admin', 'viewer'];
+    const validRoles = ["super_admin", "admin", "viewer"];
     if (data.role && !validRoles.includes(data.role)) {
-      throw new Error(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+      throw new Error(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
     }
 
     // Check if admin with email exists
@@ -207,7 +216,7 @@ export class AdminAuthService {
       .get();
 
     if (existing) {
-      throw new Error('Admin user with this email already exists');
+      throw new Error("Admin user with this email already exists");
     }
 
     // Hash password
@@ -220,7 +229,7 @@ export class AdminAuthService {
         email: data.email,
         passwordHash,
         displayName: data.displayName,
-        role: data.role || 'admin',
+        role: data.role || "admin",
         enabled: true,
         mfaEnabled: false,
       })
@@ -241,17 +250,34 @@ export class AdminAuthService {
     env: Env,
     adminId: string,
     updates: {
+      email?: string;
       displayName?: string;
-      role?: 'super_admin' | 'admin' | 'viewer';
+      role?: "super_admin" | "admin" | "viewer";
       enabled?: boolean;
-    }
+    },
   ): Promise<AdminUser> {
     const db = drizzle(env.DB);
 
     // Validate role if provided
-    const validRoles = ['super_admin', 'admin', 'viewer'];
+    const validRoles = ["super_admin", "admin", "viewer"];
     if (updates.role && !validRoles.includes(updates.role)) {
-      throw new Error(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+      throw new Error(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
+    }
+
+    // Check if email is being changed and if it's already taken
+    if (updates.email) {
+      const existing = await db
+        .select()
+        .from(adminUsers)
+        .where(eq(adminUsers.email, updates.email))
+        .get();
+
+      if (existing) {
+        const existingUser = existing as unknown as AdminUser;
+        if (existingUser.id !== adminId) {
+          throw new Error("Admin user with this email already exists");
+        }
+      }
     }
 
     const updated = await db
@@ -262,10 +288,76 @@ export class AdminAuthService {
       .get();
 
     if (!updated) {
-      throw new NotFoundError('Admin user not found');
+      throw new NotFoundError("Admin user not found");
     }
 
     return updated as unknown as AdminUser;
+  }
+
+  /**
+   * Change admin password
+   * @param env - Environment bindings
+   * @param adminId - Admin ID
+   * @param currentPassword - Current password
+   * @param newPassword - New password
+   */
+  async changeAdminPassword(
+    env: Env,
+    adminId: string,
+    currentPassword?: string,
+    newPassword?: string,
+  ): Promise<void> {
+    const db = drizzle(env.DB);
+
+    if (!newPassword) {
+      throw new Error("New password is required");
+    }
+
+    // Get admin user
+    const admin = await db
+      .select()
+      .from(adminUsers)
+      .where(eq(adminUsers.id, adminId))
+      .get();
+
+    if (!admin) {
+      throw new NotFoundError("Admin user not found");
+    }
+
+    const adminData = admin as unknown as AdminUser;
+
+    // Verify current password if provided (it should be required for self-service)
+    // We allow skipping current password if it's a super admin resetting another user's password,
+    // but for now let's enforce it or maybe pass a flag.
+    // Given the requirement "existing password", we enforce it.
+    if (!currentPassword) {
+      throw new Error("Current password is required");
+    }
+
+    const isValidPassword = await verifyPassword(
+      currentPassword,
+      adminData.passwordHash,
+    );
+    if (!isValidPassword) {
+      throw new AuthenticationError("Invalid current password");
+    }
+
+    // Hash new password
+    const passwordHash = await hashPassword(newPassword);
+
+    // Update password
+    await db
+      .update(adminUsers)
+      .set({ passwordHash, updatedAt: getTimestamp() })
+      .where(eq(adminUsers.id, adminId));
+
+    // Log audit event
+    await auditService.logEvent(env, {
+      eventType: "admin_action",
+      eventStatus: "success",
+      adminUserId: adminId,
+      eventData: { action: "change_password" },
+    });
   }
 
   /**

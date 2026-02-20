@@ -52,8 +52,11 @@ function AppRoutes() {
         } else {
           applyTheme("system");
         }
-      } catch (err) {
-        console.error("Failed to load theme settings:", err);
+      } catch (err: any) {
+        // Only log if not a session error (handled globally)
+        if (err.message !== 'Session expired' && err.message !== 'Invalid session' && err.message !== 'No admin session') {
+          console.error("Failed to load theme settings:", err);
+        }
         applyTheme("system");
       }
     };

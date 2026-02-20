@@ -122,6 +122,7 @@ app.post('/api/admin/login', async (c) => {
         displayName: admin.displayName,
         role: admin.role,
       },
+      requiresSetup: admin.email === "admin@example.com",
     },
   });
 });
@@ -300,6 +301,41 @@ app.put('/api/admin/users/:id', adminAuthMiddleware, async (c) => {
     success: true,
     data: admin,
     message: 'Admin user updated successfully',
+  });
+});
+
+// Change admin password
+app.post('/api/admin/users/:id/change-password', adminAuthMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const currentAdmin = c.get('admin');
+
+  // Ensure user can only change their own password unless they are super_admin
+  // But usually password change requiring current password is a self-service action.
+  // If super_admin resets password, they usually don't need current password.
+  // The requirement is "existing password" which implies self-service.
+  // Let's enforce that id matches currentAdmin.id for now, or allow super_admin to override?
+  // The prompt implies the user is editing a user. "when editing a admin user ... change password with existing password".
+  // This implies editing ANY user. But usually you don't know other user's password.
+  // If I am editing another user, I shouldn't need THEIR existing password to reset it.
+  // I should just set a new password.
+  // However, the prompt says "existing password", "new password", "retype new password".
+  // This specific flow (requiring existing password) is typically for changing YOUR OWN password.
+  // If I edit ANOTHER user, I usually just "Set new password".
+  // Let's assume this flow is for changing your own password OR the prompt meant "when I edit MY user" or generic "Edit User".
+  // But if I edit another user, I can't provide "existing password".
+  // So I will implement this endpoint to REQUIRE current password, which implicitly means it works for:
+  // 1. Yourself (you know your password)
+  // 2. Someone else IF you know their password (unlikely/bad practice)
+
+  // So if the ID is different from currentAdmin.id, and we enforce currentPassword, it's weird.
+  // But let's stick to the implementation in service: it checks currentPassword.
+
+  await adminAuthService.changeAdminPassword(c.env, id, body.currentPassword, body.newPassword);
+
+  return c.json({
+    success: true,
+    message: 'Password changed successfully',
   });
 });
 

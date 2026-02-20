@@ -49,15 +49,15 @@ export const updateProjectSchema = z.object({
 // ============================================================
 
 export const createOAuthProviderSchema = z.object({
-  providerName: z.enum(['google', 'github', 'microsoft', 'apple', 'custom']),
+  providerName: z.enum(["google", "github", "microsoft", "apple", "custom"]),
   enabled: z.boolean().default(true),
-  clientId: z.string().min(1, 'Client ID is required'),
-  clientSecret: z.string().min(1, 'Client Secret is required'),
+  clientId: z.string().min(1, "Client ID is required"),
+  clientSecret: z.string().min(1, "Client Secret is required"),
   authorizationUrl: z.string().url().optional(),
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   scopes: z.array(z.string()).optional(),
-  additionalConfig: z.record(z.any()).optional(),
+  additionalConfig: z.record(z.string(), z.any()).optional(),
 });
 
 export const updateOAuthProviderSchema = z.object({
@@ -68,7 +68,7 @@ export const updateOAuthProviderSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   scopes: z.array(z.string()).optional(),
-  additionalConfig: z.record(z.any()).optional(),
+  additionalConfig: z.record(z.string(), z.any()).optional(),
 });
 
 // ============================================================
@@ -187,7 +187,9 @@ export const getImportPreviewSchema = z.object({
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {
-    const errors = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`);
+    const errors = result.error.issues.map(
+      (e) => `${e.path.join(".")}: ${e.message}`,
+    );
     throw new Error(`Validation failed: ${errors.join(', ')}`);
   }
   return result.data;

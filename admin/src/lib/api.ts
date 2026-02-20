@@ -75,7 +75,7 @@ class ApiClient {
 
   // Admin Auth
   async login(email: string, password: string) {
-    const result = await this.request<{ sessionToken: string; admin: any }>(
+    const result = await this.request<{ sessionToken: string; admin: any; requiresSetup?: boolean }>(
       '/admin/login',
       {
         method: 'POST',
@@ -251,6 +251,13 @@ class ApiClient {
   async updateAdminUser(id: string, data: Partial<any>) {
     return this.request<any>(`/admin/users/${id}`, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async changeAdminPassword(id: string, data: any) {
+    return this.request<any>(`/admin/users/${id}/change-password`, {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }
