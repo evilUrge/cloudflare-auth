@@ -14,6 +14,9 @@
     <b>Secure, scalable, and developer-friendly authentication for the modern web.</b><br />
     Deploy in seconds to the Edge with Cloudflare Workers and D1.
   </p>
+  <p align="center">
+    <a href="https://github.com/evilUrge/cloudflare-auth/wiki">📚 <b>Read the Documentation</b></a>
+  </p>
 </div>
 
 ---
@@ -61,6 +64,12 @@ This rule blocks requests that do not target the `/admin` interface or the `/api
 
 - [Node.js](https://nodejs.org/) (v24 or later)
 - [Cloudflare Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+
+## 🤖 AI-Powered Integration
+
+Want to integrate this auth service into your app using AI?
+Check out our [LLM Integration Prompt](docs/LLM-Integration-Prompt.md).
+Simply copy-paste it into Cursor, Copilot, or ChatGPT to generate a full auth client for your specific tech stack.
 
 ## ⚡️ Setup & Deployment
 
