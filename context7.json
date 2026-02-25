@@ -1,5 +1,4 @@
 {
-  "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "Cloudflare Auth Service",
   "description": "A standalone deployable authentication service for Cloudflare Workers and D1. Interact via REST API only — do not import as a package.",
   "folders": [],
