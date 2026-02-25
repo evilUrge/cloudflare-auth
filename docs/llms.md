@@ -1,435 +1,300 @@
-# cloudflare-auth
-> Implementation reference for AI agents. Generated for Context7 indexing.
 
 ----------------------------------------
-TITLE: System Prerequisites
-DESCRIPTION: Ensure the environment meets the minimum requirements before installation.
-```bash
-# Node.js v24 or later required
-node -v
-
-# Cloudflare Wrangler CLI required
-npm install -g wrangler
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Install service dependencies
-DESCRIPTION: Install dependencies for the Worker and the Admin UI.
-```bash
-# Prerequisite: Node.js and Wrangler installed
-npm install
-cd admin && npm install && cd ..
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Configure wrangler.toml bindings
-DESCRIPTION: Configure D1 and static asset bindings required by the service.
-```toml
-# Prerequisite: create a D1 database before setting database_id
-main = "src/index.ts"
-
-[assets]
-directory = "./admin/dist"
-binding = "ASSETS"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "auth-db"
-database_id = "your-database-id"
-migrations_dir = "migrations"
-
-[vars]
-PASSWORD_RESET_BASE_URL = "https://your-app.com"
-EMAIL_CONFIRMATION_BASE_URL = "https://your-app.com"
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Configure Local Development Secrets
-DESCRIPTION: Create a `.dev.vars` file for local secrets. This file is required for `npm run dev`.
-```bash
-# Copy the example file
-cp .dev.vars.example .dev.vars
-
-# Edit .dev.vars and set:
-# ADMIN_SESSION_SECRET=... (generate with `openssl rand -base64 32`)
-# ENCRYPTION_KEY=... (generate with `openssl rand -base64 32`)
-# ADMIN_DOMAIN=localhost:5173
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Create D1 database
-DESCRIPTION: Create the Cloudflare D1 database used by the auth service.
-```bash
-# Prerequisite: Wrangler authenticated to your Cloudflare account
-wrangler d1 create auth-db
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Apply database migrations
-DESCRIPTION: Initialize the schema and seed the default admin user.
-```bash
-# Prerequisite: D1 database exists and database_id is set in wrangler.toml
-npm run db:migrate
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Apply local database migrations
-DESCRIPTION: Initialize the schema for local development.
-```bash
-# Prerequisite: D1 database binding configured in wrangler.toml
-npm run db:migrate:local
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Set production secrets
-DESCRIPTION: Set required secrets for admin sessions and encryption.
-```bash
-# Prerequisite: Wrangler authenticated and target environment selected
-wrangler secret put ADMIN_SESSION_SECRET
-wrangler secret put ENCRYPTION_KEY
-wrangler secret put ADMIN_DOMAIN
-wrangler secret put SENDGRID_API_KEY
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Build the Admin UI
-DESCRIPTION: Build the static admin panel that is served by the Worker.
-```bash
-# Prerequisite: admin dependencies installed
-npm run build:admin
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Start local development server
-DESCRIPTION: Run the Worker locally and serve the admin UI.
-```bash
-# Prerequisite: migrations applied locally
-npm run dev
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Deploy the auth service
-DESCRIPTION: Build the admin UI and deploy the Worker to Cloudflare.
-```bash
-# Prerequisite: production secrets set and migrations applied
-npm run deploy
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Login as default admin
-DESCRIPTION: Authenticate as the seeded admin user to obtain a session token.
+TITLE: Trigger Password Reset
+DESCRIPTION: Step 1 of 2. Initiate a password reset flow by sending an email with a reset link.
 ```typescript
-// Prerequisite: migrations applied and service deployed
-const BASE_URL = 'https://your-worker.com';
-
-const loginRes = await fetch(`${BASE_URL}/api/admin/login`, {
+// POST /api/auth/:projectId/forgot-password
+// Requires: Valid projectId
+const response = await fetch('https://your-worker.com/api/auth/PROJECT_ID/forgot-password', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    email: 'admin@example.com',
-    password: 'Admin123!'
+    email: 'user@example.com'
   })
 });
 
-const { data: { sessionToken, admin } } = await loginRes.json();
+// Always returns success: true to prevent email enumeration
+const result = await response.json();
+// result: { success: true, message: "If an account exists..." }
 ```
 ----------------------------------------
 
 ----------------------------------------
-TITLE: Change default admin credentials
-DESCRIPTION: Replace the seeded admin password after the first login.
+TITLE: Complete Password Reset
+DESCRIPTION: Step 2 of 2. Use the token from the email to set a new password.
 ```typescript
-// Prerequisite: sessionToken and admin.id from /api/admin/login
-const changePasswordRes = await fetch(`${BASE_URL}/api/admin/users/${admin.id}/change-password`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Admin-Session': sessionToken
-  },
-  body: JSON.stringify({
-    currentPassword: 'Admin123!',
-    newPassword: 'NewSecurePassword456!'
-  })
-});
-
-if (!changePasswordRes.ok) {
-  throw new Error('Failed to change default admin password');
-}
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Create a project (minimal)
-DESCRIPTION: Create a project to obtain a Project ID for auth API calls.
-```typescript
-// Prerequisite: sessionToken from /api/admin/login
-const projectRes = await fetch(`${BASE_URL}/api/admin/projects`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Admin-Session': sessionToken
-  },
-  body: JSON.stringify({
-    name: 'my-app',
-    description: 'Production App',
-    environment: 'production'
-  })
-});
-
-const { data: project } = await projectRes.json();
-console.log('Project ID:', project.id);
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Create a project (full config)
-DESCRIPTION: Create a project with all available configuration options.
-```typescript
-// Prerequisite: sessionToken from /api/admin/login
-const projectRes = await fetch(`${BASE_URL}/api/admin/projects`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Admin-Session': sessionToken
-  },
-  body: JSON.stringify({
-    name: 'my-app',
-    description: 'Production App',
-    environment: 'production',
-    jwtExpirySeconds: 3600,
-    refreshTokenExpirySeconds: 604800,
-    siteUrl: 'https://your-app.com',
-    redirectUrls: ['https://your-app.com/callback']
-  })
-});
-
-const { data: project } = await projectRes.json();
-console.log('Project ID:', project.id);
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Register a user
-DESCRIPTION: Create a new user and receive access and refresh tokens.
-```typescript
-// Prerequisite: projectId created via /api/admin/projects
-const response = await fetch(`${BASE_URL}/api/auth/${projectId}/register`, {
+// POST /api/auth/:projectId/reset-password
+// Requires: Token from email link
+const response = await fetch('https://your-worker.com/api/auth/PROJECT_ID/reset-password', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'Password123!',
-    displayName: 'John Doe'
+    token: "TOKEN_FROM_EMAIL_URL",
+    newPassword: "NewSecurePassword123!"
   })
 });
-
-const { data } = await response.json();
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Login and receive tokens
-DESCRIPTION: Authenticate a user and receive access and refresh tokens.
-```typescript
-// Prerequisite: projectId created via /api/admin/projects
-const response = await fetch(`${BASE_URL}/api/auth/${projectId}/login`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'Password123!'
-  })
-});
-
-const { data } = await response.json();
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Protect a route with redirect
-DESCRIPTION: Validate the access token via the auth service and redirect unauthenticated users.
-```typescript
-// Prerequisite: accessToken from /api/auth/:projectId/login
-export async function handleRequest(request: Request): Promise<Response> {
-  const authHeader = request.headers.get('Authorization') || '';
-
-  const authRes = await fetch(`${BASE_URL}/api/auth/${projectId}/me`, {
-    headers: { Authorization: authHeader }
-  });
-
-  if (authRes.status === 401) {
-    return Response.redirect('https://your-app.com/login', 302);
-  }
-
-  const { data: user } = await authRes.json();
-  return new Response(JSON.stringify({ user }), { status: 200 });
-}
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Access the authenticated user
-DESCRIPTION: Retrieve the current user with a valid access token.
-```typescript
-// Prerequisite: accessToken from /api/auth/:projectId/login
-const response = await fetch(`${BASE_URL}/api/auth/${projectId}/me`, {
-  headers: { Authorization: `Bearer ${accessToken}` }
-});
-
-const { data: user } = await response.json();
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Check auth status without redirect
-DESCRIPTION: Check whether a user is authenticated and continue without redirecting.
-```typescript
-// Prerequisite: accessToken from /api/auth/:projectId/login
-const response = await fetch(`${BASE_URL}/api/auth/${projectId}/me`, {
-  headers: { Authorization: `Bearer ${accessToken}` }
-});
-
-if (response.status === 401) {
-  return { authenticated: false };
-}
-
-const { data: user } = await response.json();
-return { authenticated: true, user };
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Refresh an access token
-DESCRIPTION: Exchange a refresh token for a new access token.
-```typescript
-// Prerequisite: refreshToken from /api/auth/:projectId/login
-const response = await fetch(`${BASE_URL}/api/auth/${projectId}/refresh`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ refreshToken })
-});
-
-const { data } = await response.json();
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Logout and revoke refresh token
-DESCRIPTION: Invalidate the refresh token to end the session.
-```typescript
-// Prerequisite: refreshToken from /api/auth/:projectId/login
-await fetch(`${BASE_URL}/api/auth/${projectId}/logout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ refreshToken })
-});
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Full authentication flow
-DESCRIPTION: End-to-end client flow for register, login, refresh, and logout.
-```typescript
-// Prerequisite: projectId created via /api/admin/projects
-const registerRes = await fetch(`${BASE_URL}/api/auth/${projectId}/register`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password, displayName })
-});
-const registerData = await registerRes.json();
-
-const loginRes = await fetch(`${BASE_URL}/api/auth/${projectId}/login`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
-});
-const loginData = await loginRes.json();
-
-const meRes = await fetch(`${BASE_URL}/api/auth/${projectId}/me`, {
-  headers: { Authorization: `Bearer ${loginData.data.accessToken}` }
-});
-const meData = await meRes.json();
-
-const refreshRes = await fetch(`${BASE_URL}/api/auth/${projectId}/refresh`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ refreshToken: loginData.data.refreshToken })
-});
-const refreshData = await refreshRes.json();
-
-await fetch(`${BASE_URL}/api/auth/${projectId}/logout`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ refreshToken: refreshData.data.refreshToken })
-});
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Handle auth errors
-DESCRIPTION: Handle common auth error responses by status code.
-```typescript
-try {
-  const res = await fetch(`${BASE_URL}/api/auth/${projectId}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json();
-    if (res.status === 400) console.error('Validation:', errorData.error);
-    if (res.status === 401) console.error('Auth failed:', errorData.error);
-    if (res.status === 403) console.error('Forbidden:', errorData.error);
-    if (res.status === 429) console.error('Rate limit:', errorData.error);
-  }
-} catch (e) {
-  console.error('Network error', e);
-}
-```
-----------------------------------------
-
-----------------------------------------
-TITLE: Handle email confirmation
-DESCRIPTION: Verify a user's email using the token from the confirmation URL.
-```typescript
-// Prerequisite: token from confirmation email link
-const response = await fetch(
-  `${BASE_URL}/api/auth/${projectId}/confirm-email?token=${token}`,
-  { method: 'GET' }
-);
 
 const result = await response.json();
+if (result.success) {
+  // Password changed. User must now login with new password.
+}
 ```
 ----------------------------------------
 
 ----------------------------------------
-TITLE: Handle rate limiting retries
-DESCRIPTION: Retry requests after 429 responses using the Retry-After header.
+TITLE: Retrieve Audit Logs
+DESCRIPTION: Fetch audit logs via Admin API. Supports filtering by project, event type, and pagination.
 ```typescript
-async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
-  const response = await fetch(url, options);
+// GET /api/admin/audit-logs
+// Headers: { 'X-Admin-Session': '...' }
+const params = new URLSearchParams({
+  projectId: 'optional-project-id',
+  eventType: 'user_login', // optional
+  limit: '50',
+  offset: '0'
+});
 
-  if (response.status === 429) {
-    if (retries <= 0) throw new Error('Rate limit exceeded');
-    const retryAfter = response.headers.get('Retry-After');
-    const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 1000;
-    await new Promise(resolve => setTimeout(resolve, waitMs));
-    return fetchWithRetry(url, options, retries - 1);
+const response = await fetch(`https://your-worker.com/api/admin/audit-logs?${params}`, {
+  headers: { 'X-Admin-Session': sessionToken }
+});
+
+const { data } = await response.json();
+/* Response shape:
+data: [{
+  id: string,
+  projectId: string | null,
+  eventType: string, // e.g., 'user_login', 'project_created'
+  eventStatus: 'success' | 'failure' | 'warning',
+  userId: string | null,
+  adminUserId: string | null,
+  ipAddress: string | null,
+  userAgent: string | null,
+  eventData: string | null, // JSON string
+  createdAt: string
+}]
+*/
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Update User via Admin API
+DESCRIPTION: Admin endpoint to update user details, verify email/phone, or ban users.
+```typescript
+// PUT /api/admin/projects/:projectId/users/:userId
+// Headers: { 'X-Admin-Session': '...' }
+const response = await fetch('https://your-worker.com/api/admin/projects/PROJECT_ID/users/USER_ID', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Admin-Session': sessionToken
+  },
+  body: JSON.stringify({
+    displayName: 'New Name',
+    email: 'new@example.com',
+    emailVerified: true,
+    phoneVerified: true,
+    status: 'suspended', // 'active' | 'suspended' | 'deleted'
+    metadata: JSON.stringify({ role: 'editor' })
+  })
+});
+
+const { data: updatedUser } = await response.json();
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Configure Global Rate Limits
+DESCRIPTION: Set default rate limits for all projects via System Settings.
+```typescript
+// PUT /api/admin/settings
+// Headers: { 'X-Admin-Session': '...' }
+// NOTE: This sets GLOBAL defaults. Per-endpoint configuration is [NOT EXPOSED VIA API].
+const response = await fetch('https://your-worker.com/api/admin/settings', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Admin-Session': sessionToken
+  },
+  body: JSON.stringify({
+    defaultRateLimitWindow: 60, // seconds
+    defaultRateLimitMax: 5      // attempts per window
+  })
+});
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Configure OAuth Provider
+DESCRIPTION: Enable an OAuth provider (Google, GitHub, Microsoft, Apple) for a specific project.
+```typescript
+// POST /api/admin/projects/:projectId/oauth
+// Headers: { 'X-Admin-Session': '...' }
+const response = await fetch('https://your-worker.com/api/admin/projects/PROJECT_ID/oauth', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Admin-Session': sessionToken
+  },
+  body: JSON.stringify({
+    providerName: 'google', // google, github, microsoft, apple, custom
+    clientId: 'YOUR_GOOGLE_CLIENT_ID',
+    clientSecret: 'YOUR_GOOGLE_CLIENT_SECRET',
+    scopes: ['email', 'profile'],
+    enabled: true
+  })
+});
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Get OAuth Authorization URL
+DESCRIPTION: Start the OAuth flow by fetching the provider's redirect URL.
+```typescript
+// GET /api/auth/:projectId/oauth/:provider
+const params = new URLSearchParams({
+  redirect_uri: 'https://your-app.com/callback',
+  state: 'random-secure-string'
+});
+
+const response = await fetch(`https://your-worker.com/api/auth/PROJECT_ID/oauth/google?${params}`);
+const { data } = await response.json();
+
+// Redirect the user's browser to this URL
+// window.location.href = data.authUrl;
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Handle OAuth Callback
+DESCRIPTION: Exchange the provider's code for access/refresh tokens.
+```typescript
+// GET /api/auth/:projectId/oauth/:provider/callback
+const params = new URLSearchParams({
+  code: 'CODE_FROM_PROVIDER',
+  redirect_uri: 'https://your-app.com/callback' // Must match the one used in step 1
+});
+
+const response = await fetch(`https://your-worker.com/api/auth/PROJECT_ID/oauth/google/callback?${params}`);
+const { data } = await response.json();
+
+// data: {
+//   user: { id, email, ... },
+//   accessToken: "...",
+//   refreshToken: "..."
+// }
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Configure Email Provider
+DESCRIPTION: Configure SendGrid or other providers for sending system emails.
+```typescript
+// POST /api/admin/email-providers
+// Headers: { 'X-Admin-Session': '...' }
+const response = await fetch('https://your-worker.com/api/admin/email-providers', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Admin-Session': sessionToken
+  },
+  body: JSON.stringify({
+    name: 'Primary SendGrid',
+    provider: 'sendgrid', // sendgrid, mailgun, postmark, resend, smtp
+    type: 'api',
+    fromEmail: 'noreply@your-app.com',
+    fromName: 'Auth Service',
+    isDefault: true,
+    config: {
+      apiKey: 'SG.your_api_key_here'
+    }
+  })
+});
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Customize Email Templates
+DESCRIPTION: Update the HTML/Text content for system emails (confirmation, password reset, welcome).
+```typescript
+// PUT /api/admin/email-templates/:type
+// Type: confirmation | password_reset | welcome
+const response = await fetch('https://your-worker.com/api/admin/email-templates/confirmation', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Admin-Session': sessionToken
+  },
+  body: JSON.stringify({
+    subject: 'Confirm your account for {{project_name}}',
+    bodyHtml: '<h1>Welcome!</h1><p>Click here: <a href="{{confirmation_url}}">Confirm Email</a></p>',
+    bodyText: 'Welcome! Confirm here: {{confirmation_url}}'
+  })
+});
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: RBAC - Decode JWT and Check Role
+DESCRIPTION: Decode the JWT on the client to check authentication state.
+```typescript
+// NOTE: JWT does not include a role claim by default.
+// Implement RBAC by storing roles in your app DB and looking them up by user.id,
+// or by adding custom claims to the token generation logic if modifying the source.
+
+function decodeToken(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
   }
-
-  return response;
 }
+
+// Usage
+const token = "ey...";
+const payload = decodeToken(token);
+
+if (payload) {
+  console.log("User ID:", payload.sub);
+  console.log("Email:", payload.email);
+  console.log("Project:", payload.projectId);
+  console.log("Expires:", new Date(payload.exp * 1000));
+}
+```
+----------------------------------------
+
+----------------------------------------
+TITLE: Architecture Reference
+DESCRIPTION: High-level system architecture overview.
+```typescript
+/**
+ * ARCHITECTURE: Cloudflare Auth Service
+ *
+ * Runtime: Cloudflare Workers (V8 isolates, ~0ms cold start, global edge PoPs)
+ * Database: Cloudflare D1 (SQLite at edge, eventually consistent reads)
+ *
+ * Multi-project isolation:
+ *   Each project gets a dedicated user table: users_{projectId}
+ *   JWT secrets are per-project and auto-generated on project creation
+ *
+ * Token model:
+ *   accessToken  — short-lived JWT (default: 1h), signed with project JWT secret
+ *   refreshToken — long-lived opaque token stored in D1, rotated on use
+ *
+ * Eventual consistency gotcha:
+ *   D1 writes are not immediately visible on subsequent reads in the same request.
+ *   Do not read-after-write within the same Worker invocation.
+ *
+ * Data residency:
+ *   Free tier: Cloudflare selects D1 region automatically
+ *   Paid tier: D1 supports location hints for regional data pinning
+ *
+ * Scaling: Workers scale horizontally by default. D1 scales to 10GB per database.
+ *   For >10GB user data, partition by creating additional D1 databases per project group.
+ */
 ```
 ----------------------------------------
