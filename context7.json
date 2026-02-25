@@ -1,0 +1,15 @@
+{
+  "title": "Cloudflare Auth Service",
+  "description": "A standalone authentication service deployable to Cloudflare Workers with D1 database, JWT tokens, multi-project support, and OAuth integration.",
+  "url": "https://context7.com/evilurge/cloudflare-auth",
+  "public_key": "pk_gsuoX6CinBKSpQvTFCY5o",
+  "folders": ["docs"],
+  "excludeFolders": ["admin/src", "src", "migrations", "node_modules"],
+  "excludeFiles": ["CHANGELOG.md"],
+  "rules": [
+    "This is a standalone deployable service, not an npm package. Do not import it. Interact via REST API fetch calls only.",
+    "Every API endpoint requires a projectId obtained from /api/admin/projects.",
+    "Run migrations before first use: npm run db:migrate",
+    "Change default admin credentials (admin@example.com / Admin123!) immediately after deployment."
+  ]
+}
