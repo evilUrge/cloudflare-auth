@@ -35,6 +35,7 @@ import {
   resetPasswordSchema
 } from './utils/validation';
 import { getIpAddress, getUserAgent } from './utils/helpers';
+import { initializeDatabase } from './utils/setup';
 
 // Initialize Hono app
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -42,6 +43,21 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // Global middleware
 app.use('*', corsMiddleware);
 app.onError(errorHandler);
+
+// Database initialization middleware
+let dbInitialized = false;
+app.use('*', async (c, next) => {
+  if (!dbInitialized) {
+    try {
+      await initializeDatabase(c.env);
+      dbInitialized = true;
+    } catch (e) {
+      console.error('Failed to initialize database:', e);
+      // We don't block the request here, but subsequent DB operations might fail
+    }
+  }
+  await next();
+});
 
 // ============================================================
 // ROOT HANDLER

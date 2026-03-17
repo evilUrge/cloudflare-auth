@@ -21,6 +21,25 @@
 
 ---
 
+## 🚀 One-Click Deploy
+
+Deploy your own instance of Cloudflare Auth Service to Cloudflare Workers in one click.
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/evilUrge/cloudflare-auth)
+
+This will:
+1. Fork this repository to your GitHub account.
+2. Create a new Cloudflare Worker project.
+3. Set up a D1 database.
+4. Deploy the admin UI and API.
+5. Automatically initialize the database schema on first run.
+
+**Default Admin Credentials:**
+- Email: `admin@example.com`
+- Password: `admin123`
+
+> **Important:** Change these credentials immediately after logging in!
+
 ## 🚀 Why Cloudflare Auth?
 
 - **Global Scale**: Runs on Cloudflare's global edge network for low-latency authentication anywhere.
