@@ -30,15 +30,35 @@ Deploy your own instance of Cloudflare Auth Service to Cloudflare Workers in one
 This will:
 1. Fork this repository to your GitHub account.
 2. Create a new Cloudflare Worker project.
-3. Set up a D1 database.
+3. Set up a D1 database and run all migrations.
 4. Deploy the admin UI and API.
-5. Automatically initialize the database schema on first run.
 
 **Default Admin Credentials:**
 - Email: `admin@example.com`
 - Password: `admin123`
 
 > **Important:** Change these credentials immediately after logging in!
+
+### Post-Deploy Configuration
+
+After deployment, your Worker is live at `https://auth.<your-account>.workers.dev`. To finish setup:
+
+**1. Set required secrets** (run these locally with Wrangler):
+
+```bash
+wrangler secret put ADMIN_SESSION_SECRET  # openssl rand -base64 32
+wrangler secret put ENCRYPTION_KEY        # openssl rand -base64 32
+```
+
+**2. Set your admin domain** to restrict CORS to your actual domain:
+
+```bash
+wrangler secret put ADMIN_DOMAIN          # e.g. auth.yourdomain.com
+```
+
+> Until `ADMIN_DOMAIN` is set, CORS defaults to `*` (all origins). This is safe for initial testing but should be restricted before going to production.
+
+**3. (Optional) Add a custom domain** in the Cloudflare Workers dashboard under **Settings → Domains & Routes**.
 
 ## 🚀 Why Cloudflare Auth?
 
