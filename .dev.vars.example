@@ -11,11 +11,6 @@
 # Generate with: openssl rand -base64 32
 ADMIN_SESSION_SECRET=your_admin_session_secret_here
 
-# Admin Domain
-# The domain where the admin panel is hosted (e.g., "admin.yourdomain.com")
-# In development, this is usually localhost:5173 or localhost:8787
-ADMIN_DOMAIN=localhost:5173
-
 # Encryption Key
 # A 32-byte base64-encoded key used for encrypting sensitive data in the database
 # Generate with: openssl rand -base64 32
