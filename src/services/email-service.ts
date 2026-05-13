@@ -245,8 +245,9 @@ export class EmailService {
   ): Promise<void> {
     const templateData: ConfirmationEmailData = {
       project_name: projectName,
+      app_name: projectName,
       confirmation_url: confirmationUrl,
-      action_url: confirmationUrl, // Alias for template compatibility
+      action_url: confirmationUrl,
     } as any;
 
     await this.sendEmail(
@@ -270,7 +271,8 @@ export class EmailService {
     const templateData: PasswordResetEmailData = {
       reset_url: resetUrl,
       project_name: name,
-      action_url: resetUrl, // Alias
+      app_name: name,
+      action_url: resetUrl,
     } as any;
 
     await this.sendEmail(
