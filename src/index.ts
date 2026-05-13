@@ -815,12 +815,11 @@ app.post('/api/auth/:projectId/register', async (c) => {
   const result = await authService.register(c.env, projectId, data, c.req.raw);
 
   // Send email confirmation (non-blocking - don't fail registration if email fails)
-  if (c.env.SENDGRID_API_KEY) {
-    try {
-      // Get project for name
-      const project = await projectService.getProject(c.env, projectId);
+  try {
+    // Get project for name
+    const project = await projectService.getProject(c.env, projectId);
 
-      if (project) {
+    if (project) {
         // Create confirmation token
         const { token } = await emailConfirmationService.createConfirmationToken(
           c.env,
@@ -864,7 +863,6 @@ app.post('/api/auth/:projectId/register', async (c) => {
         },
       });
     }
-  }
 
   return c.json({
     success: true,
@@ -1110,9 +1108,8 @@ app.get('/api/auth/:projectId/confirm-email', async (c) => {
     // Get project for welcome email
     const project = await projectService.getProject(c.env, projectId);
 
-    if (project && c.env.SENDGRID_API_KEY) {
+    if (project) {
       try {
-        // Send welcome email
         await emailService.sendWelcomeEmail(
           c.env,
           email,
@@ -1121,7 +1118,6 @@ app.get('/api/auth/:projectId/confirm-email', async (c) => {
 
         console.log('Welcome email sent to:', email);
       } catch (emailError: any) {
-        // Log error but don't fail confirmation
         console.error('Failed to send welcome email:', emailError.message);
       }
     }

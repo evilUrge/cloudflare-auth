@@ -273,7 +273,14 @@ export class UserService {
     tableName: string,
     userId: string
   ): Promise<void> {
-    await this.updateUser(env, tableName, userId, { status: 'deleted' });
+    const safeName = sanitizeTableName(tableName);
+    const user = await this.getUserById(env, tableName, userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    await env.DB.prepare(
+      `UPDATE ${safeName} SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+    ).bind(userId).run();
   }
 
   /**
