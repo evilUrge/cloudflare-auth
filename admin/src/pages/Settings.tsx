@@ -21,6 +21,8 @@ interface EmailProviderConfig {
   password?: string;
   secretKey?: string;
   secure?: boolean;
+  accountId?: string;
+  apiToken?: string;
 }
 
 interface EmailProvider {
@@ -406,18 +408,19 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
   });
   const [loading, setLoading] = useState(false);
 
-  const providerOptions = [
-    "sendgrid",
-    "postmark",
-    "mailgun",
-    "brevo",
-    "mailersend",
-    "mailchimp",
-    "mailjet",
-    "smtp2go",
-    "mailtrap",
-    "resend",
-    "smtp",
+  const providerOptions: { value: string; label: string }[] = [
+    { value: "sendgrid",   label: "SendGrid"   },
+    { value: "postmark",   label: "Postmark"   },
+    { value: "mailgun",    label: "Mailgun"    },
+    { value: "brevo",      label: "Brevo"      },
+    { value: "mailersend", label: "MailerSend" },
+    { value: "mailchimp",  label: "Mailchimp"  },
+    { value: "mailjet",    label: "Mailjet"    },
+    { value: "smtp2go",    label: "SMTP2Go"    },
+    { value: "mailtrap",   label: "Mailtrap"   },
+    { value: "resend",     label: "Resend"     },
+    { value: "cloudflare", label: "Cloudflare" },
+    { value: "smtp",       label: "SMTP"       },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -468,9 +471,9 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
                 setFormData({ ...formData, provider: e.target.value })
               }
             >
-              {providerOptions.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              {providerOptions.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
@@ -529,25 +532,27 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
           <div className="space-y-4">
             {formData.type === "api" ? (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-text-secondary mb-1">
-                    {formData.provider === "postmark"
-                      ? "Server Token"
-                      : "API Key"}
-                  </label>
-                  <input
-                    type="password"
-                    className="input w-full"
-                    value={formData.config?.apiKey || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        config: { ...formData.config, apiKey: e.target.value },
-                      })
-                    }
-                    required={formData.type === "api"}
-                  />
-                </div>
+                {formData.provider !== "cloudflare" && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      {formData.provider === "postmark"
+                        ? "Server Token"
+                        : "API Key"}
+                    </label>
+                    <input
+                      type="password"
+                      className="input w-full"
+                      value={formData.config?.apiKey || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          config: { ...formData.config, apiKey: e.target.value },
+                        })
+                      }
+                      required={formData.type === "api"}
+                    />
+                  </div>
+                )}
 
                 {/* Mailjet Secret Key */}
                 {["mailjet"].includes(formData.provider || "") && (
@@ -571,6 +576,50 @@ function EmailProviderForm({ initialData, onCancel, onSuccess }: { initialData: 
                       required
                     />
                   </div>
+                )}
+
+                {/* Cloudflare — optional account override */}
+                {formData.provider === "cloudflare" && (
+                  <>
+                    <p className="text-xs text-text-secondary bg-surface-secondary rounded p-3">
+                      By default the Worker's <code>CF_ACCOUNT_ID</code> and <code>CF_API_TOKEN</code> secrets are used.
+                      Fill in the fields below only if you want to send from a different Cloudflare account.
+                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-1">
+                        Account ID <span className="text-text-secondary font-normal">(optional override)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input w-full font-mono text-sm"
+                        value={formData.config?.accountId || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, accountId: e.target.value },
+                          })
+                        }
+                        placeholder="Leave blank to use CF_ACCOUNT_ID secret"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-1">
+                        API Token <span className="text-text-secondary font-normal">(optional override)</span>
+                      </label>
+                      <input
+                        type="password"
+                        className="input w-full"
+                        value={formData.config?.apiToken || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            config: { ...formData.config, apiToken: e.target.value },
+                          })
+                        }
+                        placeholder="Leave blank to use CF_API_TOKEN secret"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {/* Mailgun Domain & Region */}

@@ -12,6 +12,8 @@ export interface Env {
   SENDGRID_TEMPLATE_WELCOME?: string;
   PASSWORD_RESET_BASE_URL?: string;
   EMAIL_CONFIRMATION_BASE_URL?: string;
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
 }
 
 export interface SystemSettings {
@@ -29,8 +31,9 @@ export type EmailProviderType =
   | 'mailjet' 
   | 'smtp2go' 
   | 'mailtrap' 
-  | 'resend' 
-  | 'smtp' 
+  | 'resend'
+  | 'smtp'
+  | 'cloudflare'
   | 'custom';
 
 export interface EmailProvider {

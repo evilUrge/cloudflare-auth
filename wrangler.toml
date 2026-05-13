@@ -31,6 +31,15 @@ migrations_dir = "migrations"
 # - ENCRYPTION_KEY: Key for encrypting sensitive data (32 bytes, base64 encoded)
 #   Set with: wrangler secret put ENCRYPTION_KEY
 #
+# OPTIONAL SECRETS (for Cloudflare Email provider):
+# - CF_ACCOUNT_ID: Cloudflare Account ID — default for the Cloudflare email provider
+#   Set with: wrangler secret put CF_ACCOUNT_ID
+#   (Can be overridden per-provider via the admin dashboard)
+#
+# - CF_API_TOKEN: Cloudflare API Token with email sending permissions
+#   Set with: wrangler secret put CF_API_TOKEN
+#   (Can be overridden per-provider via the admin dashboard)
+#
 
 [observability]
 enabled = true

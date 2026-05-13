@@ -25,6 +25,8 @@ export class ProviderFactory {
         return new MailgunProvider(config);
       case 'resend':
         return new ResendProvider(config);
+      case 'cloudflare':
+        return new CloudflareEmailProvider(config);
       case 'smtp':
         return new SmtpProvider(config);
       default:
@@ -142,6 +144,41 @@ export class ResendProvider implements IEmailProvider {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Resend Error: ${error}`);
+    }
+  }
+}
+
+export class CloudflareEmailProvider implements IEmailProvider {
+  constructor(private config: { accountId?: string; apiToken?: string }) {}
+
+  async send(message: EmailMessage): Promise<void> {
+    if (!this.config.accountId) throw new Error('Cloudflare Email: accountId is required');
+    if (!this.config.apiToken) throw new Error('Cloudflare Email: apiToken is required');
+
+    const url = `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/email/sending/send`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.config.apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: message.to,
+        from: message.fromName ? `${message.fromName} <${message.from}>` : message.from,
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json<any>().catch(() => ({}));
+      throw new Error(`Cloudflare Email Error: ${err?.errors?.[0]?.message ?? response.statusText}`);
+    }
+
+    const body = await response.json<any>();
+    if (!body.success) {
+      throw new Error(`Cloudflare Email Error: ${body.errors?.[0]?.message ?? 'Unknown error'}`);
     }
   }
 }

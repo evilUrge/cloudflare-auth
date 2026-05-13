@@ -1,4 +1,4 @@
-import type { Env } from '../types';
+import type { Env, EmailProvider } from '../types';
 import { AppError } from '../utils/errors';
 import { EmailProviderService } from './email-provider-service';
 import { EmailTemplateService } from './email-template-service';
@@ -39,6 +39,17 @@ interface WelcomeEmailData {
  */
 export class EmailService {
   private readonly defaultFromEmail = 'noreply@example.com';
+
+  private buildProviderConfig(provider: EmailProvider, env: Env): Record<string, any> {
+    if (provider.provider === 'cloudflare') {
+      return {
+        accountId: env.CF_ACCOUNT_ID,
+        apiToken: env.CF_API_TOKEN,
+        ...provider.config,
+      };
+    }
+    return provider.config;
+  }
 
   /**
    * Render a template with data using Mustache-like syntax {{key}}
@@ -124,7 +135,7 @@ export class EmailService {
          const renderedSubject = this.renderTemplate(activeTemplate.subject, templateData);
 
          // 3. Send
-         const emailProvider = ProviderFactory.create(provider.provider, provider.config);
+         const emailProvider = ProviderFactory.create(provider.provider, this.buildProviderConfig(provider, env));
          await emailProvider.send({
            to,
            from: provider.fromEmail,
@@ -141,7 +152,7 @@ export class EmailService {
          const renderedSubject = this.renderTemplate(template.subject, templateData);
 
          // 3. Send
-         const emailProvider = ProviderFactory.create(provider.provider, provider.config);
+         const emailProvider = ProviderFactory.create(provider.provider, this.buildProviderConfig(provider, env));
          await emailProvider.send({
            to,
            from: provider.fromEmail,
