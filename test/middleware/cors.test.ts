@@ -194,4 +194,46 @@ describe('corsMiddleware', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
     expect(await res.json()).toEqual({ ok: true });
   });
+
+  it('does not throw "Can\'t modify immutable headers" (Cloudflare Workers regression)', async () => {
+    // Simulate Cloudflare Workers' Response: header set() on a finalized
+    // response throws "Can't modify immutable headers". We simulate this by
+    // patching the global Response so that mutating headers.set after the
+    // handler returns throws — exactly what happens in production.
+    vi.mocked(projectService.getProject).mockResolvedValue(makeProject({ allowedOrigins: ['*'] }));
+    const innerApp = new Hono<{ Bindings: Env }>();
+    innerApp.use('*', corsMiddleware);
+    innerApp.get('/api/auth/:projectId/ping', (c) => c.json({ ok: true }));
+
+    const RealResponse = globalThis.Response;
+    class LockedHeadersResponse extends RealResponse {
+      constructor(body: BodyInit | null, init?: ResponseInit) {
+        super(body, init);
+        // After construction, simulate Workers finalization by making
+        // any subsequent .set/.append/.delete on headers throw.
+        const headers = this.headers;
+        const throwOnMutate = () => {
+          throw new TypeError("Can't modify immutable headers");
+        };
+        Object.defineProperty(headers, 'set', { value: throwOnMutate, configurable: true });
+        Object.defineProperty(headers, 'append', { value: throwOnMutate, configurable: true });
+        Object.defineProperty(headers, 'delete', { value: throwOnMutate, configurable: true });
+      }
+    }
+    // @ts-ignore - swap globally for this test only
+    globalThis.Response = LockedHeadersResponse as any;
+
+    try {
+      const req = new Request('http://localhost/api/auth/test_project/ping', {
+        headers: { Origin: 'https://app.tenant.com' },
+      });
+      // Should NOT throw — middleware must construct a new Response, not mutate.
+      const res = await innerApp.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.tenant.com');
+      expect(res.headers.get('Vary')).toContain('Origin');
+    } finally {
+      globalThis.Response = RealResponse;
+    }
+  });
 });
