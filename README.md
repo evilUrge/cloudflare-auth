@@ -50,15 +50,21 @@ wrangler secret put ADMIN_SESSION_SECRET  # openssl rand -base64 32
 wrangler secret put ENCRYPTION_KEY        # openssl rand -base64 32
 ```
 
-**2. Set your admin domain** to restrict CORS to your actual domain:
+**2. Set your admin domain** to restrict CORS for the admin UI / admin API to your actual domain:
 
 ```bash
 wrangler secret put ADMIN_DOMAIN          # e.g. auth.yourdomain.com
 ```
 
-> Until `ADMIN_DOMAIN` is set, CORS defaults to `*` (all origins). This is safe for initial testing but should be restricted before going to production.
+> Until `ADMIN_DOMAIN` is set, admin endpoints omit CORS headers entirely (server-to-server without an `Origin` header still works; browsers will block cross-origin XHR until you set `ADMIN_DOMAIN`).
 
-**3. (Optional) Add a custom domain** in the Cloudflare Workers dashboard under **Settings → Domains & Routes**.
+**3. (Optional) Lock down tenant origins per project.** Each project can declare exactly which frontend origins may call its `/api/auth/:projectId/*` endpoints via the **Allowed CORS Origins** field in the admin UI. Semantics:
+
+- **Empty / unset** — allow any origin (default for new projects; matches prior behavior).
+- **`*` as a single entry** — explicitly allow any origin.
+- **One or more exact origins** (e.g. `https://app.tenant.com`) — strict allowlist.
+
+**4. (Optional) Add a custom domain** in the Cloudflare Workers dashboard under **Settings → Domains & Routes**.
 
 ## 🚀 Why Cloudflare Auth?
 

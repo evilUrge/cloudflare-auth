@@ -22,6 +22,13 @@ export const createProjectSchema = z.object({
   redirectUrls: z.array(
     z.string().url('Each redirect URL must be a valid URL')
   ).optional(),
+  // Allowed CORS origins for tenant-facing /api/auth/:projectId/* endpoints.
+  // null/undefined = allow all, [] = deny all, ['*'] = allow all,
+  // exact origins = strict allowlist. Capped at 100 to prevent DoS via huge
+  // allowlists.
+  allowedOrigins: z.array(
+    z.string().min(1, 'Each origin must be a non-empty string')
+  ).max(100, 'Allowed origins cannot exceed 100 entries').optional(),
 });
 
 export const updateProjectSchema = z.object({
@@ -42,6 +49,10 @@ export const updateProjectSchema = z.object({
   redirectUrls: z.array(
     z.string().url('Each redirect URL must be a valid URL')
   ).optional(),
+  // Allowed CORS origins (see createProjectSchema for semantics).
+  allowedOrigins: z.array(
+    z.string().min(1, 'Each origin must be a non-empty string')
+  ).max(100, 'Allowed origins cannot exceed 100 entries').optional(),
 });
 
 // ============================================================

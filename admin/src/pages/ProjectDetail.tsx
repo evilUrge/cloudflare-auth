@@ -13,6 +13,7 @@ interface Project {
   userTableName: string;
   siteUrl?: string;
   redirectUrls?: string[];
+  allowedOrigins?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +68,7 @@ export default function ProjectDetail() {
   const [enabled, setEnabled] = useState(true);
   const [siteUrl, setSiteUrl] = useState('');
   const [redirectUrls, setRedirectUrls] = useState('');
+  const [allowedOrigins, setAllowedOrigins] = useState('');
 
   useEffect(() => {
     loadProject();
@@ -84,6 +86,7 @@ export default function ProjectDetail() {
       setEnabled(proj.enabled);
       setSiteUrl(proj.siteUrl || '');
       setRedirectUrls(proj.redirectUrls?.join('\n') || '');
+      setAllowedOrigins(proj.allowedOrigins?.join('\n') || '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
@@ -102,6 +105,12 @@ export default function ProjectDetail() {
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
+      // Parse allowed origins from textarea (one per line). '*' is the wildcard.
+      const allowedOriginsArray = allowedOrigins
+        .split('\n')
+        .map(o => o.trim())
+        .filter(o => o.length > 0);
+
       await api.updateProject(id!, {
         name,
         description,
@@ -109,6 +118,7 @@ export default function ProjectDetail() {
         enabled,
         siteUrl: siteUrl.trim() || undefined,
         redirectUrls: redirectUrlsArray.length > 0 ? redirectUrlsArray : undefined,
+        allowedOrigins: allowedOriginsArray.length > 0 ? allowedOriginsArray : undefined,
       });
       await loadProject();
       alert('Project updated successfully');
@@ -196,6 +206,8 @@ export default function ProjectDetail() {
           setSiteUrl={setSiteUrl}
           redirectUrls={redirectUrls}
           setRedirectUrls={setRedirectUrls}
+          allowedOrigins={allowedOrigins}
+          setAllowedOrigins={setAllowedOrigins}
           showSecret={showSecret}
           setShowSecret={setShowSecret}
           copySecret={copySecret}
@@ -362,6 +374,8 @@ function OverviewTab({
   setSiteUrl,
   redirectUrls,
   setRedirectUrls,
+  allowedOrigins,
+  setAllowedOrigins,
   showSecret,
   setShowSecret,
   copySecret,
@@ -472,6 +486,24 @@ function OverviewTab({
         />
         <p className="text-xs text-text-secondary mt-1">
           Allowed callback URLs for email verification and password reset (one per line)
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-secondary mb-2">
+          Allowed CORS Origins
+        </label>
+        <textarea
+          value={allowedOrigins}
+          onChange={(e) => setAllowedOrigins(e.target.value)}
+          className="input"
+          rows={3}
+          placeholder="https://app.tenant.com&#10;https://staging.tenant.com"
+        />
+        <p className="text-xs text-text-secondary mt-1">
+          Frontend origins allowed to call this project's <code>/api/auth</code> endpoints
+          (one per line). Leave empty to allow any origin, or use <code>*</code> as a single
+          entry to allow any origin explicitly. Max 100 entries.
         </p>
       </div>
 

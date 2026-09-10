@@ -390,6 +390,112 @@ describe('ProjectService - updateProject', () => {
   });
 });
 
+describe('ProjectService - allowedOrigins JSON round-trip', () => {
+  let projectService: ProjectService;
+  let env: Env;
+
+  beforeEach(() => {
+    projectService = new ProjectService();
+    env = createMockEnv();
+    vi.clearAllMocks();
+  });
+
+  it('parses allowedOrigins JSON string to array on getProject', async () => {
+    const { drizzle } = await import('drizzle-orm/d1');
+    vi.mocked(drizzle).mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        id: 'p',
+        name: 'p',
+        description: null,
+        environment: 'production',
+        jwtSecret: 's',
+        jwtAlgorithm: 'HS256',
+        jwtExpirySeconds: 3600,
+        refreshTokenExpirySeconds: 604800,
+        enabled: true,
+        userTableName: 'p_users',
+        siteUrl: null,
+        redirectUrls: '["https://r.example.com"]',
+        allowedOrigins: '["https://app.tenant.com","https://staging.tenant.com"]',
+        createdAt: '',
+        updatedAt: '',
+        createdBy: null,
+      }),
+    } as any);
+
+    const result = await projectService.getProject(env, 'p');
+    expect(result).not.toBeNull();
+    expect(result!.allowedOrigins).toEqual([
+      'https://app.tenant.com',
+      'https://staging.tenant.com',
+    ]);
+    expect(result!.redirectUrls).toEqual(['https://r.example.com']);
+  });
+
+  it('returns null allowedOrigins when DB column is null', async () => {
+    const { drizzle } = await import('drizzle-orm/d1');
+    vi.mocked(drizzle).mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        id: 'p',
+        name: 'p',
+        description: null,
+        environment: 'production',
+        jwtSecret: 's',
+        jwtAlgorithm: 'HS256',
+        jwtExpirySeconds: 3600,
+        refreshTokenExpirySeconds: 604800,
+        enabled: true,
+        userTableName: 'p_users',
+        siteUrl: null,
+        redirectUrls: null,
+        allowedOrigins: null,
+        createdAt: '',
+        updatedAt: '',
+        createdBy: null,
+      }),
+    } as any);
+
+    const result = await projectService.getProject(env, 'p');
+    expect(result!.allowedOrigins).toBeNull();
+  });
+
+  it('falls back to null when allowedOrigins JSON is malformed', async () => {
+    const { drizzle } = await import('drizzle-orm/d1');
+    vi.mocked(drizzle).mockReturnValueOnce({
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      get: vi.fn().mockResolvedValue({
+        id: 'p',
+        name: 'p',
+        description: null,
+        environment: 'production',
+        jwtSecret: 's',
+        jwtAlgorithm: 'HS256',
+        jwtExpirySeconds: 3600,
+        refreshTokenExpirySeconds: 604800,
+        enabled: true,
+        userTableName: 'p_users',
+        siteUrl: null,
+        redirectUrls: null,
+        allowedOrigins: '{not json',
+        createdAt: '',
+        updatedAt: '',
+        createdBy: null,
+      }),
+    } as any);
+
+    const result = await projectService.getProject(env, 'p');
+    expect(result!.allowedOrigins).toBeNull();
+  });
+});
+
 describe('ProjectService - deleteProject', () => {
   let projectService: ProjectService;
   let env: Env;

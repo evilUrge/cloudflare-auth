@@ -75,6 +75,49 @@ describe('Validation Utils', () => {
 
       expect(() => validate(createProjectSchema, data)).toThrow();
     });
+
+    it('should accept allowedOrigins as array of strings', () => {
+      const data = {
+        name: 'Test',
+        allowedOrigins: ['https://app.tenant.com', 'https://staging.tenant.com'],
+      };
+      const result = validate(createProjectSchema, data);
+      expect(result.allowedOrigins).toEqual([
+        'https://app.tenant.com',
+        'https://staging.tenant.com',
+      ]);
+    });
+
+    it('should accept allowedOrigins with the "*" wildcard', () => {
+      const data = { name: 'Test', allowedOrigins: ['*'] };
+      const result = validate(createProjectSchema, data);
+      expect(result.allowedOrigins).toEqual(['*']);
+    });
+
+    it('should accept allowedOrigins empty array', () => {
+      const data = { name: 'Test', allowedOrigins: [] };
+      const result = validate(createProjectSchema, data);
+      expect(result.allowedOrigins).toEqual([]);
+    });
+
+    it('should reject empty strings in allowedOrigins', () => {
+      const data = { name: 'Test', allowedOrigins: [''] };
+      expect(() => validate(createProjectSchema, data)).toThrow();
+    });
+
+    it('should reject allowedOrigins with more than 100 entries', () => {
+      const data = {
+        name: 'Test',
+        allowedOrigins: Array.from({ length: 101 }, (_, i) => `https://o${i}.example.com`),
+      };
+      expect(() => validate(createProjectSchema, data)).toThrow();
+    });
+
+    it('should accept allowedOrigins on updateProjectSchema', () => {
+      const data = { allowedOrigins: ['https://app.tenant.com'] };
+      const result = validate(updateProjectSchema, data);
+      expect(result.allowedOrigins).toEqual(['https://app.tenant.com']);
+    });
   });
 
   describe('updateProjectSchema', () => {

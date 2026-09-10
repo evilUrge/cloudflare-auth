@@ -50,7 +50,7 @@ export class ProjectService {
 
     // Insert project (without user_table_name initially)
     // Note: Using explicit ID instead of SQL-based random generation
-    const projectData = {
+    const projectData: any = {
       id: projectId,
       name: data.name,
       description: data.description || null,
@@ -63,6 +63,11 @@ export class ProjectService {
       userTableName: '', // Will update after creating table
       createdBy: adminUserId || null,
     };
+    if (data.allowedOrigins !== undefined) {
+      projectData.allowedOrigins = Array.isArray(data.allowedOrigins)
+        ? JSON.stringify(data.allowedOrigins)
+        : data.allowedOrigins;
+    }
 
     const result = await db
       .insert(projects)
@@ -204,6 +209,15 @@ export class ProjectService {
       }
     }
 
+    // Parse allowedOrigins from JSON string to array (mirrors redirectUrls)
+    if (result.allowedOrigins && typeof result.allowedOrigins === 'string') {
+      try {
+        result.allowedOrigins = JSON.parse(result.allowedOrigins);
+      } catch {
+        result.allowedOrigins = null;
+      }
+    }
+
     return result as Project;
   }
 
@@ -244,6 +258,15 @@ export class ProjectService {
       }
     }
 
+    // Parse allowedOrigins from JSON string to array (mirrors redirectUrls)
+    if (result.allowedOrigins && typeof result.allowedOrigins === 'string') {
+      try {
+        result.allowedOrigins = JSON.parse(result.allowedOrigins);
+      } catch {
+        result.allowedOrigins = null;
+      }
+    }
+
     return result as Project;
   }
 
@@ -277,6 +300,14 @@ export class ProjectService {
           (p as any).redirectUrls = JSON.parse(p.redirectUrls as any);
         } catch {
           (p as any).redirectUrls = null;
+        }
+      }
+      // Parse allowedOrigins for all projects (mirrors redirectUrls)
+      if (p.allowedOrigins && typeof p.allowedOrigins === 'string') {
+        try {
+          (p as any).allowedOrigins = JSON.parse(p.allowedOrigins as any);
+        } catch {
+          (p as any).allowedOrigins = null;
         }
       }
       return p;
@@ -328,6 +359,12 @@ export class ProjectService {
       updateData.redirectUrls = Array.isArray(data.redirectUrls)
         ? JSON.stringify(data.redirectUrls)
         : data.redirectUrls;
+    }
+    // Convert allowedOrigins array to JSON string for storage (mirrors redirectUrls)
+    if (data.allowedOrigins !== undefined) {
+      updateData.allowedOrigins = Array.isArray(data.allowedOrigins)
+        ? JSON.stringify(data.allowedOrigins)
+        : data.allowedOrigins;
     }
 
     const updated = await db

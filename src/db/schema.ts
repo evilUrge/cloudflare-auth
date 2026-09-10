@@ -47,6 +47,11 @@ export const projects = sqliteTable('projects', {
   // Similar to Supabase's redirect URL allowlist for additional security
   redirectUrls: text('redirect_urls'),
 
+  // Allowed CORS origins for tenant-facing /api/auth/:projectId/* endpoints
+  // (stored as JSON array string). null = allow all (default), [] = deny all
+  // cross-origin, ['*'] = allow all, ['https://app.tenant.com', ...] = strict.
+  allowedOrigins: text('allowed_origins'),
+
   // Timestamps
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),

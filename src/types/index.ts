@@ -84,6 +84,7 @@ export interface Project {
   userTableName: string;
   siteUrl: string | null;
   redirectUrls: string | null;
+  allowedOrigins: string[] | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -95,6 +96,7 @@ export interface CreateProjectData {
   environment?: 'development' | 'staging' | 'production';
   jwtExpirySeconds?: number;
   refreshTokenExpirySeconds?: number;
+  allowedOrigins?: string[] | null;
   createdBy?: string;
 }
 

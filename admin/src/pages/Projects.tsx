@@ -305,6 +305,7 @@ function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
   const [environment, setEnvironment] = useState('production');
   const [siteUrl, setSiteUrl] = useState('');
   const [redirectUrls, setRedirectUrls] = useState('');
+  const [allowedOrigins, setAllowedOrigins] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -320,12 +321,19 @@ function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
+      // Parse allowed origins from textarea (one per line). '*' is the wildcard.
+      const allowedOriginsArray = allowedOrigins
+        .split('\n')
+        .map(o => o.trim())
+        .filter(o => o.length > 0);
+
       await api.createProject({
         name,
         description,
         environment,
         siteUrl: siteUrl.trim() || undefined,
         redirectUrls: redirectUrlsArray.length > 0 ? redirectUrlsArray : undefined,
+        allowedOrigins: allowedOriginsArray.length > 0 ? allowedOriginsArray : undefined,
       });
       onSuccess();
     } catch (err) {
@@ -434,6 +442,25 @@ function CreateProjectModal({ onClose, onSuccess }: CreateProjectModalProps) {
             />
             <p className="text-xs text-text-secondary mt-1">
               Allowed callback URLs for email verification (one per line, optional)
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="allowedOrigins" className="block text-sm font-medium text-text-secondary mb-2">
+              Allowed CORS Origins
+            </label>
+            <textarea
+              id="allowedOrigins"
+              value={allowedOrigins}
+              onChange={(e) => setAllowedOrigins(e.target.value)}
+              className="input w-full"
+              rows={3}
+              placeholder="https://app.tenant.com&#10;https://staging.tenant.com&#10;or leave empty to allow any origin"
+            />
+            <p className="text-xs text-text-secondary mt-1">
+              Frontend origins allowed to call this project's /api/auth endpoints
+              (one per line). Leave empty to allow any origin, or use <code>*</code> as
+              a single entry to allow any origin explicitly.
             </p>
           </div>
 

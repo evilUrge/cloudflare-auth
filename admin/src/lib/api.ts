@@ -122,6 +122,7 @@ class ApiClient {
     environments?: string[];
     siteUrl?: string;
     redirectUrls?: string[];
+    allowedOrigins?: string[];
   }) {
     return this.request<any>('/admin/projects', {
       method: 'POST',
@@ -136,6 +137,7 @@ class ApiClient {
     enabled: boolean;
     siteUrl: string;
     redirectUrls: string[];
+    allowedOrigins: string[];
   }>) {
     return this.request<any>(`/admin/projects/${id}`, {
       method: 'PUT',
